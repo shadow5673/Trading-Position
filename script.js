@@ -23,8 +23,7 @@ function saveState() {
     margin: document.getElementById('margin').value,
     leverage: document.getElementById('leverage').value,
     cost: document.getElementById('cost').value,
-    sellPrice: document.getElementById('sellPrice').value,
-    refillCurrent: document.getElementById('refillCurrent').value
+    sellPrice: document.getElementById('sellPrice').value
   };
   localStorage.setItem(STORE_KEY, JSON.stringify(data));
 }
@@ -59,7 +58,6 @@ function recalc() {
   document.getElementById('fullPosition').textContent = fmtJPY(fullPos);
   document.getElementById('apple-value').textContent = fmtJPY(apple);
 
-  // 止盈止损规则:触发价 + 苹果金额
   const cost = parseFloat(document.getElementById('cost').value);
   const hasCost = isFinite(cost) && cost > 0;
 
@@ -70,7 +68,6 @@ function recalc() {
     valueEl.textContent = apple > 0 ? `(${fmtJPY(apple * r.apples)})` : '(—)';
   });
 
-  // 补仓阶梯:苹果金额
   document.getElementById('lad1-value').textContent = apple > 0 ? `(${fmtJPY(apple * 1)})` : '(—)';
   document.getElementById('lad2-value').textContent = apple > 0 ? `(${fmtJPY(apple * 2)})` : '(—)';
   document.getElementById('lad3-value').textContent = apple > 0 ? `(${fmtJPY(apple * 6)})` : '(—)';
@@ -81,18 +78,15 @@ function recalc() {
 
 function updateLadder() {
   const sellPrice = parseFloat(document.getElementById('sellPrice').value);
-  const refillCur = parseFloat(document.getElementById('refillCurrent').value);
   const steps = document.querySelectorAll('.ladder-step');
 
   if (!isFinite(sellPrice) || sellPrice <= 0) {
     steps.forEach(s => {
-      s.classList.remove('active');
       s.querySelector('.price').textContent = '—';
     });
     return;
   }
 
-  // 三档价位:0.5-2%, 2-4%, 4%+
   const p1Low  = sellPrice * (1 - 0.005);
   const p1High = sellPrice * (1 - 0.02);
   const p2Low  = sellPrice * (1 - 0.02);
@@ -102,18 +96,9 @@ function updateLadder() {
   steps[0].querySelector('.price').textContent = `${fmtPrice(p1High)} ~ ${fmtPrice(p1Low)}`;
   steps[1].querySelector('.price').textContent = `${fmtPrice(p2High)} ~ ${fmtPrice(p2Low)}`;
   steps[2].querySelector('.price').textContent = `≤ ${fmtPrice(p3)}`;
-
-  steps.forEach(s => s.classList.remove('active'));
-
-  if (isFinite(refillCur) && refillCur > 0) {
-    const drop = (sellPrice - refillCur) / sellPrice * 100;
-    if (drop >= 4) steps[2].classList.add('active');
-    else if (drop >= 2) steps[1].classList.add('active');
-    else if (drop >= 0.5) steps[0].classList.add('active');
-  }
 }
 
-['margin','leverage','cost','sellPrice','refillCurrent'].forEach(id => {
+['margin','leverage','cost','sellPrice'].forEach(id => {
   document.getElementById(id).addEventListener('input', recalc);
 });
 

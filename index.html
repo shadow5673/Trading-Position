@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>仓位管理 · Position Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Serif+JP:wght@300;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 <div class="container">
@@ -32,7 +32,7 @@
 
   <div class="config-metrics">
     <div class="metric metric-inline">
-      <span class="metric-label">満仓目標 (6 🍎)</span>
+      <span class="metric-label">満仓目標 (6 苹果)</span>
       <span class="metric-value accent big num" id="fullPosition">—</span>
     </div>
     <div class="metric metric-inline">
@@ -56,15 +56,15 @@
       <h3>止盈 · 卖中位仓</h3>
       <div class="rule-line">
         <span class="trigger">+5% <span class="rule-price" id="tp5-price">(—)</span></span>
-        <span class="action">减 1 🍎 <span class="rule-value" id="tp5-value">(—)</span></span>
+        <span class="action">减 1 苹果 <span class="rule-value" id="tp5-value">(—)</span></span>
       </div>
       <div class="rule-line">
         <span class="trigger">+8% <span class="rule-price" id="tp8-price">(—)</span></span>
-        <span class="action">减 2 🍎 <span class="rule-value" id="tp8-value">(—)</span></span>
+        <span class="action">减 2 苹果 <span class="rule-value" id="tp8-value">(—)</span></span>
       </div>
       <div class="rule-line">
         <span class="trigger">+12% <span class="rule-price" id="tp12-price">(—)</span></span>
-        <span class="action">减 3 🍎 <span class="rule-value" id="tp12-value">(—)</span></span>
+        <span class="action">减 3 苹果 <span class="rule-value" id="tp12-value">(—)</span></span>
       </div>
     </div>
 
@@ -72,11 +72,11 @@
       <h3>止损 · 卖高位仓</h3>
       <div class="rule-line">
         <span class="trigger">-8% <span class="rule-price" id="sl8-price">(—)</span></span>
-        <span class="action">减 3 🍎 <span class="rule-value" id="sl8-value">(—)</span></span>
+        <span class="action">减 3 苹果 <span class="rule-value" id="sl8-value">(—)</span></span>
       </div>
       <div class="rule-line">
         <span class="trigger">-12% <span class="rule-price" id="sl12-price">(—)</span></span>
-        <span class="action">清空 (6 🍎) <span class="rule-value" id="sl12-value">(—)</span></span>
+        <span class="action">清空 (6 苹果) <span class="rule-value" id="sl12-value">(—)</span></span>
       </div>
     </div>
   </div>
@@ -95,23 +95,18 @@
     <div class="ladder-step">
       <div class="pct">回撤 0.5% — 2%</div>
       <div class="price">—</div>
-      <div class="action">加 1 🍎 <span class="ladder-value" id="lad1-value">(—)</span></div>
+      <div class="action">加 1 苹果 <span class="ladder-value" id="lad1-value">(—)</span></div>
     </div>
     <div class="ladder-step">
       <div class="pct">回撤 2% — 4%</div>
       <div class="price">—</div>
-      <div class="action">加 2 🍎 <span class="ladder-value" id="lad2-value">(—)</span></div>
+      <div class="action">加 2 苹果 <span class="ladder-value" id="lad2-value">(—)</span></div>
     </div>
     <div class="ladder-step">
       <div class="pct">回撤 4%+ / EMA75</div>
       <div class="price">—</div>
-      <div class="action">ALL IN (6 🍎) <span class="ladder-value" id="lad3-value">(—)</span></div>
+      <div class="action">ALL IN (6 苹果) <span class="ladder-value" id="lad3-value">(—)</span></div>
     </div>
-  </div>
-
-  <div class="field" style="margin-top: 20px;">
-    <label>现价(选填,自动高亮当前阶段)</label>
-    <input type="number" id="refillCurrent" placeholder="留空只显示价位" step="0.1">
   </div>
 </div>
 
@@ -121,7 +116,6 @@
 
 </div>
 
-<!-- deploy: v4 -->
-<script src="script.js?v=4"></script>
+<script src="script.js?v=5"></script>
 </body>
 </html>
