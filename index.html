@@ -15,10 +15,11 @@
   <div class="subtitle">Position Manager · Six Apples Rule</div>
 </header>
 
-<!-- 全仓配置 -->
-<div class="grid">
-  <div class="panel">
-    <div class="panel-title">基础配置</div>
+<!-- 基础配置 -->
+<div class="panel">
+  <div class="panel-title">基础配置</div>
+
+  <div class="config-grid">
     <div class="field">
       <label>信用保証金 <span class="unit">JPY</span></label>
       <input type="text" id="margin" placeholder="19000000" inputmode="numeric">
@@ -27,90 +28,62 @@
       <label>レバレッジ倍率</label>
       <input type="number" id="leverage" value="2.5" step="0.1" min="1">
     </div>
-
-    <div style="margin-top: 20px;">
-      <div class="metric">
-        <span class="metric-label">満仓目標</span>
-        <span class="metric-value accent big num" id="fullPosition">—</span>
-      </div>
-      <div class="metric">
-        <span class="metric-label">1 苹果 = </span>
-        <span class="metric-value accent num" id="apple-value">—</span>
-      </div>
-    </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-title">当前持仓状态</div>
-    <div class="field">
-      <label>当前持仓苹果数 (0-6)</label>
-      <input type="number" id="currentApples" value="6" min="0" max="6">
+  <div style="margin-top: 16px;">
+    <div class="metric">
+      <span class="metric-label">満仓目標 (6 苹果)</span>
+      <span class="metric-value accent big num" id="fullPosition">—</span>
     </div>
-
-    <div class="apples" id="appleDisplay"></div>
-    <div class="apple-label" id="appleStatus">満仓</div>
-
-    <div style="margin-top: 16px;">
-      <div class="metric">
-        <span class="metric-label">现持仓额</span>
-        <span class="metric-value num" id="currentValue">—</span>
-      </div>
+    <div class="metric">
+      <span class="metric-label">1 苹果</span>
+      <span class="metric-value accent num" id="apple-value">—</span>
     </div>
   </div>
 </div>
 
-<!-- 止盈止损决策 -->
-<div class="decision-panel">
-  <div class="panel-title">止盈止损 · 决策面板</div>
+<!-- 止盈止损规则 -->
+<div class="panel" style="margin-top: 20px;">
+  <div class="panel-title">止盈止损规则</div>
 
-  <div class="decision-grid">
-    <div>
-      <div class="field">
-        <label>持仓成本(平均价)</label>
-        <input type="number" id="cost" placeholder="2500" step="0.1">
-      </div>
-      <div class="field">
-        <label>当前现价</label>
-        <input type="number" id="current" placeholder="2625" step="0.1">
-      </div>
-      <div class="metric" style="margin-top: 10px;">
-        <span class="metric-label">評価損益率</span>
-        <span class="metric-value big num" id="pnlRate">—</span>
-      </div>
-    </div>
-
-    <div>
-      <label style="display: block; font-size: 10px; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px;">建议动作</label>
-      <div class="decision-result" id="decisionBox">
-        <div class="decision-action">输入成本和现价</div>
-        <div class="decision-detail">系统会根据规则给出建议</div>
-      </div>
-    </div>
+  <div class="field">
+    <label>持仓成本(平均价)</label>
+    <input type="number" id="cost" placeholder="2500" step="0.1">
   </div>
-</div>
-
-<!-- 规则参考 -->
-<div class="rule-section">
-  <div class="panel-title">规则速查</div>
 
   <div class="rule-grid">
     <div class="rule-box profit">
-      <h3>止盈(卖中位仓)</h3>
-      <div class="rule-line"><span class="trigger">+5%</span><span class="action">减 1 苹果</span></div>
-      <div class="rule-line"><span class="trigger">+8%</span><span class="action">减 2 苹果</span></div>
-      <div class="rule-line"><span class="trigger">+12%</span><span class="action">减 3 苹果</span></div>
+      <h3>止盈 · 卖中位仓</h3>
+      <div class="rule-line">
+        <span class="trigger">+5% <span class="rule-price" id="tp5-price">(—)</span></span>
+        <span class="action">减 1 苹果 <span class="rule-value" id="tp5-value">(—)</span></span>
+      </div>
+      <div class="rule-line">
+        <span class="trigger">+8% <span class="rule-price" id="tp8-price">(—)</span></span>
+        <span class="action">减 2 苹果 <span class="rule-value" id="tp8-value">(—)</span></span>
+      </div>
+      <div class="rule-line">
+        <span class="trigger">+12% <span class="rule-price" id="tp12-price">(—)</span></span>
+        <span class="action">减 3 苹果 <span class="rule-value" id="tp12-value">(—)</span></span>
+      </div>
     </div>
 
     <div class="rule-box loss">
-      <h3>止损(卖高位仓)</h3>
-      <div class="rule-line"><span class="trigger">-8%</span><span class="action">减 3 苹果</span></div>
-      <div class="rule-line"><span class="trigger">-12%</span><span class="action">清空</span></div>
+      <h3>止损 · 卖高位仓</h3>
+      <div class="rule-line">
+        <span class="trigger">-8% <span class="rule-price" id="sl8-price">(—)</span></span>
+        <span class="action">减 3 苹果 <span class="rule-value" id="sl8-value">(—)</span></span>
+      </div>
+      <div class="rule-line">
+        <span class="trigger">-12% <span class="rule-price" id="sl12-price">(—)</span></span>
+        <span class="action">清空 (6 苹果) <span class="rule-value" id="sl12-value">(—)</span></span>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- 补仓阶梯 -->
-<div class="panel">
+<div class="panel" style="margin-top: 20px;">
   <div class="panel-title">止盈后补仓 · 回撤阶梯</div>
 
   <div class="field" style="margin-top: 8px;">
@@ -122,37 +95,23 @@
     <div class="ladder-step">
       <div class="pct">回撤 0.5% — 2%</div>
       <div class="price">—</div>
-      <div class="action">加 1 苹果</div>
+      <div class="action">加 1 苹果 <span class="ladder-value" id="lad1-value">(—)</span></div>
     </div>
     <div class="ladder-step">
       <div class="pct">回撤 2% — 4%</div>
       <div class="price">—</div>
-      <div class="action">加 2 苹果</div>
+      <div class="action">加 2 苹果 <span class="ladder-value" id="lad2-value">(—)</span></div>
     </div>
     <div class="ladder-step">
       <div class="pct">回撤 4%+ / EMA75</div>
       <div class="price">—</div>
-      <div class="action">ALL IN</div>
+      <div class="action">ALL IN (6 苹果) <span class="ladder-value" id="lad3-value">(—)</span></div>
     </div>
   </div>
 
   <div class="field" style="margin-top: 20px;">
     <label>现价(选填,自动高亮当前阶段)</label>
     <input type="number" id="refillCurrent" placeholder="留空只显示价位" step="0.1">
-  </div>
-</div>
-
-<!-- 操作历史 -->
-<div class="panel" style="margin-top: 20px;">
-  <div class="panel-title">操作记录</div>
-
-  <div class="btn-row">
-    <button class="btn" onclick="logAction('记录当前状态')">记录当前快照</button>
-    <button class="btn" onclick="clearHistory()">清空历史</button>
-  </div>
-
-  <div class="history-list" id="historyList">
-    <div class="empty-hint">暂无记录</div>
   </div>
 </div>
 
