@@ -35,6 +35,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 16px;
   margin-bottom: 40px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
@@ -45,6 +46,7 @@ h1 {
   font-weight: 300;
   font-size: 32px;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 h1 .accent {
@@ -92,7 +94,6 @@ h1 .accent {
   border-radius: 50%;
 }
 
-/* 信用保証金 + 倍率:任何屏幕下都保持左右一行 */
 .config-grid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -149,12 +150,12 @@ h1 .accent {
   align-items: baseline;
   padding: 8px 0;
   border-bottom: 1px dashed var(--line);
+  gap: 10px;
 }
 
 .metric-inline {
   border-bottom: none;
   padding: 4px 0;
-  gap: 10px;
 }
 
 .metric:last-child { border-bottom: none; }
@@ -165,18 +166,20 @@ h1 .accent {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .metric-value {
   font-size: 20px;
   font-weight: 500;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .metric-value.accent { color: var(--accent); }
-.metric-value.big { font-size: 26px; }
+.metric-value.big { font-size: 24px; }
 
-/* 苹果图标(只在基础配置用) */
+/* 苹果图标(仅基础配置使用) */
 .apple-icon {
   display: inline-block;
   width: 16px;
@@ -186,6 +189,7 @@ h1 .accent {
   box-shadow: inset -3px -3px 5px rgba(0,0,0,0.25);
   vertical-align: middle;
   position: relative;
+  flex-shrink: 0;
 }
 
 .apple-icon::after {
@@ -242,11 +246,13 @@ h1 .accent {
 .rule-line .trigger {
   color: var(--text);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .rule-line .action {
   color: var(--text-dim);
   font-size: 15px;
+  white-space: nowrap;
 }
 
 .rule-price {
@@ -273,7 +279,7 @@ h1 .accent {
   font-variant-numeric: tabular-nums;
 }
 
-/* 补仓阶梯:三段各占一行(单列) */
+/* 补仓阶梯 */
 .ladder {
   display: grid;
   grid-template-columns: 1fr;
@@ -290,23 +296,21 @@ h1 .accent {
   grid-template-columns: 1.1fr 1.2fr 1.3fr;
   align-items: center;
   gap: 16px;
-  text-align: left;
 }
 
 .ladder-step .pct {
   font-size: 14px;
   color: var(--text-dim);
   letter-spacing: 0.1em;
-  margin: 0;
 }
 
 .ladder-step .price {
   font-size: 18px;
   font-weight: 500;
   color: var(--text);
-  margin: 0;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .ladder-step .action {
@@ -327,19 +331,52 @@ h1 .accent {
 
 .num { font-variant-numeric: tabular-nums; }
 
+/* ---------- 手机端响应式 ---------- */
 @media (max-width: 800px) {
   body { padding: 16px 12px; font-size: 14px; }
-  h1 { font-size: 24px; }
-  .rule-grid { grid-template-columns: 1fr; }
-  .config-metrics { grid-template-columns: 1fr 1fr; }
-  /* 阶梯卡片在小屏上文字改成纵向 */
-  .ladder-step {
-    grid-template-columns: 1fr;
-    text-align: center;
-    gap: 8px;
-    padding: 14px 16px;
+
+  /* 标题竖排,不再被挤断 */
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
   }
-  .ladder-step .action { text-align: center; }
-  .rule-line { font-size: 16px; }
-  .rule-price, .rule-box .rule-value { font-size: 15px; }
+  h1 { font-size: 26px; }
+  .subtitle { font-size: 11px; }
+
+  /* 基础配置:満仓目標 + 1苹果 各占一行,避免值被截断 */
+  .config-metrics { grid-template-columns: 1fr; gap: 2px; }
+  .metric-value.big { font-size: 22px; }
+
+  /* 规则:止盈/止损 上下排 */
+  .rule-grid { grid-template-columns: 1fr; }
+  /* 每条规则:第一行 +x% (¥xxx) 居左,第二行 减 N 苹果 (¥xxx) 居右 */
+  .rule-line {
+    flex-direction: row;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    font-size: 15px;
+    padding: 10px 0;
+  }
+  .rule-line .trigger { font-size: 15px; }
+  .rule-line .action { font-size: 14px; }
+  .rule-price,
+  .rule-box .rule-value { font-size: 14px; }
+
+  /* 阶梯:每步 pct + action 同一行,价位单独一行居中 */
+  .ladder-step {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "pct action"
+      "price price";
+    gap: 8px 12px;
+    padding: 14px 16px;
+    text-align: left;
+  }
+  .ladder-step .pct { grid-area: pct; text-align: left; font-size: 13px; }
+  .ladder-step .price { grid-area: price; text-align: center; font-size: 19px; }
+  .ladder-step .action { grid-area: action; text-align: right; font-size: 13px; }
+  .ladder-value { font-size: 12px; margin-top: 2px; }
 }
