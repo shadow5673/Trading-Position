@@ -1,4 +1,5 @@
 const STORE_KEY = 'positionManagerData';
+const VERSION = 'v6';
 
 function fmtJPY(n) {
   if (!isFinite(n) || n === null) return '—';
