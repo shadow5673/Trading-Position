@@ -299,8 +299,9 @@ h1 .accent {
 }
 
 .ladder-step .pct {
-  font-size: 14px;
-  color: var(--text-dim);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text);
   letter-spacing: 0.1em;
 }
 
@@ -375,7 +376,7 @@ h1 .accent {
     padding: 14px 16px;
     text-align: left;
   }
-  .ladder-step .pct { grid-area: pct; text-align: left; font-size: 13px; }
+  .ladder-step .pct { grid-area: pct; text-align: left; font-size: 16px; }
   .ladder-step .price { grid-area: price; text-align: center; font-size: 19px; }
   .ladder-step .action { grid-area: action; text-align: right; font-size: 13px; }
   .ladder-value { font-size: 12px; margin-top: 2px; }
