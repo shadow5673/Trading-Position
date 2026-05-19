@@ -113,7 +113,7 @@ h1 .accent {
 
 .field label {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.15em;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -140,7 +140,7 @@ h1 .accent {
 
 .field .unit {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 12px;
   margin-left: 6px;
 }
 
