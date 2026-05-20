@@ -328,7 +328,8 @@ h1 .accent {
 .ladder-step .price-avg {
   display: block;
   font-size: 14px;
-  color: var(--text-dim);
+  font-weight: 500;
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
   margin-top: 6px;
   letter-spacing: 0.05em;
