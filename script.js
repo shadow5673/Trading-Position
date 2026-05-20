@@ -43,8 +43,8 @@ function loadState() {
 
 const RULES = [
   { id: 'tp5',  pct:  0.05, apples: 1 },
-  { id: 'tp8',  pct:  0.08, apples: 2 },
-  { id: 'tp12', pct:  0.12, apples: 3 },
+  { id: 'tp10', pct:  0.10, apples: 1 },
+  { id: 'tp15', pct:  0.15, apples: 1 },
   { id: 'sl8',  pct: -0.08, apples: 3 },
   { id: 'sl12', pct: -0.12, apples: 6 },
 ];
@@ -69,9 +69,9 @@ function recalc() {
     valueEl.textContent = apple > 0 ? `(${fmtJPY(apple * r.apples)})` : '(—)';
   });
 
-  document.getElementById('lad1-value').textContent = apple > 0 ? `(${fmtJPY(apple * 1)})` : '(—)';
-  document.getElementById('lad2-value').textContent = apple > 0 ? `(${fmtJPY(apple * 2)})` : '(—)';
-  document.getElementById('lad3-value').textContent = apple > 0 ? `(${fmtJPY(apple * 6)})` : '(—)';
+  document.getElementById('lad1-value').textContent = apple > 0 ? `(${fmtJPY(apple)})` : '(—)';
+  document.getElementById('lad2-value').textContent = apple > 0 ? `(${fmtJPY(apple)})` : '(—)';
+  document.getElementById('lad3-value').textContent = apple > 0 ? `(${fmtJPY(apple)})` : '(—)';
 
   updateLadder();
   saveState();
@@ -88,14 +88,13 @@ function updateLadder() {
     return;
   }
 
-  const p1Low  = sellPrice * (1 - 0.005);
-  const p1High = sellPrice * (1 - 0.02);
-  const p2Low  = sellPrice * (1 - 0.02);
-  const p2High = sellPrice * (1 - 0.04);
-  const p3     = sellPrice * (1 - 0.04);
+  // 取区间平均回撤:0.5–2% 平均 1.25%; 2–4% 平均 3%; 4%+ 取 4% 门槛
+  const p1 = sellPrice * (1 - 0.0125);
+  const p2 = sellPrice * (1 - 0.03);
+  const p3 = sellPrice * (1 - 0.04);
 
-  steps[0].querySelector('.price').textContent = `${fmtPrice(p1High)} ~ ${fmtPrice(p1Low)}`;
-  steps[1].querySelector('.price').textContent = `${fmtPrice(p2High)} ~ ${fmtPrice(p2Low)}`;
+  steps[0].querySelector('.price').textContent = fmtPrice(p1);
+  steps[1].querySelector('.price').textContent = fmtPrice(p2);
   steps[2].querySelector('.price').textContent = `≤ ${fmtPrice(p3)}`;
 }
 
