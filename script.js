@@ -83,19 +83,27 @@ function updateLadder() {
 
   if (!isFinite(sellPrice) || sellPrice <= 0) {
     steps.forEach(s => {
-      s.querySelector('.price').textContent = '—';
+      s.querySelector('.price-main').textContent = '—';
+      s.querySelector('.price-avg').textContent = '';
     });
     return;
   }
 
-  // 取区间平均回撤:0.5–2% 平均 1.25%; 2–4% 平均 3%; 4%+ 取 4% 门槛
-  const p1 = sellPrice * (1 - 0.0125);
-  const p2 = sellPrice * (1 - 0.03);
-  const p3 = sellPrice * (1 - 0.04);
+  // 区间高低价 + 区间平均价(追加情报)
+  const p1Low  = sellPrice * (1 - 0.005);
+  const p1High = sellPrice * (1 - 0.02);
+  const p1Avg  = sellPrice * (1 - 0.0125);
+  const p2Low  = sellPrice * (1 - 0.02);
+  const p2High = sellPrice * (1 - 0.04);
+  const p2Avg  = sellPrice * (1 - 0.03);
+  const p3     = sellPrice * (1 - 0.04);
 
-  steps[0].querySelector('.price').textContent = fmtPrice(p1);
-  steps[1].querySelector('.price').textContent = fmtPrice(p2);
-  steps[2].querySelector('.price').textContent = `≤ ${fmtPrice(p3)}`;
+  steps[0].querySelector('.price-main').textContent = `${fmtPrice(p1High)} ~ ${fmtPrice(p1Low)}`;
+  steps[0].querySelector('.price-avg').textContent  = `均价 ${fmtPrice(p1Avg)}`;
+  steps[1].querySelector('.price-main').textContent = `${fmtPrice(p2High)} ~ ${fmtPrice(p2Low)}`;
+  steps[1].querySelector('.price-avg').textContent  = `均价 ${fmtPrice(p2Avg)}`;
+  steps[2].querySelector('.price-main').textContent = `≤ ${fmtPrice(p3)}`;
+  steps[2].querySelector('.price-avg').textContent  = '';
 }
 
 ['margin','leverage','cost','sellPrice'].forEach(id => {
