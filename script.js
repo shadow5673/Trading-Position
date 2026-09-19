@@ -31,7 +31,7 @@ function render(){
  $('account-metrics').innerHTML=metric('账户总权益',money(view.value),book?markNote:'设置后开始跟踪')+metric('可用现金',money(book?.cash),'余仓清空前不重新投入')+metric('已实现盈亏',money(book?.realized),'未扣税 · 成交价按实际记录')+metric('当前持仓',book?`${pos?.qty||0}<small>股</small>`:'—',pos?`买入于 ${pos.entryDate}`:'等待完整入场信号');
  $('signal-score').textContent=b.checks?`${b.checks.filter(Boolean).length} / 4 成立`:'指标预热中';$('signal-date').textContent=`根据 ${b.date} 已收盘日线判断`;
  const lag=view.bars.at(-6),touch=view.bars.slice(-4,-1).filter(x=>x.low<=x.ma10).map(x=>x.date.slice(5)).join('、');
- const checks=[['收盘站上 20 日均线',`收盘 ${price(b.close)} / MA20 ${price(b.ma20)}`],['20 日均线正在向上',`当前 ${price(b.ma20)} / 5 日前 ${price(lag?.ma20)}`],['此前 3 日回踩 10 日均线',touch?`触及日期：${touch}`:'此前三日低点均未触及 MA10'],['收盘突破昨日最高价',`收盘 ${price(b.close)} / 昨高 ${price(prev?.high)}`]];
+ const checks=[['收盘站上日线 SMA20',`收盘 ${price(b.close)} / 20 日简单均线 ${price(b.ma20)}`],['日线 SMA20 正在向上',`当前 ${price(b.ma20)} / 5 日前 ${price(lag?.ma20)}`],['此前 3 日回踩日线 SMA10',touch?`触及日期：${touch}`:'此前三日低点均未触及当日 SMA10'],['收盘突破昨日最高价',`收盘 ${price(b.close)} / 昨高 ${price(prev?.high)}`]];
  $('signal-list').innerHTML=checks.map(([title,detail],i)=>`<div class="signal-row ${b.checks?.[i]?'pass':''}"><span class="signal-icon">${b.checks?.[i]?'✓':'−'}</span><div class="signal-text">${title}<small>${detail}</small></div><span class="signal-state">${b.checks?.[i]?'成立':'等待'}</span></div>`).join('');
  $('entry-plan').innerHTML=`<strong>开盘允许区间 · ${price(b.close*.97)} — ${price(b.close*1.03)} 日元</strong><p>${b.signal&&view.fresh?'信号成立后，仍需核对次日实际开盘。':'这只是价格范围；信号、数据和暂停条件也必须全部满足。'} ATR14：${price(b.atr)}，初始风险距离 R：${price(b.atr*1.5)}。</p>`;
  $('next-details').innerHTML=pos?`<div class="next-large">${view.stalePosition?'行情待更新':yen(lv.stop)}</div><div class="next-caption">${view.stalePosition?'旧止损仍需核对，暂停计算新的止损上调。':`${view.intendedDate} 生效的止损触发参考价`}<br>余仓 ${pos.qty} 股 · 最迟 ${pos.deadline} 退出</div>`:book?.cooldownEnd&&view.planDate<=book.cooldownEnd?`<div class="next-large">${book.cooldownEnd.slice(5).replace('-',' / ')}</div><div class="next-caption">暂停至这一天收盘。之后仍需重新满足入场信号。</div>`:`<div class="next-large">${view.planDate.slice(5).replace('-',' / ')}</div><div class="next-caption">下一交易日。${b.signal?'先确认开盘，再决定是否买入。':'保持现金，等待下一次收盘确认。'}<br>实际买入后，才开始计算持仓期限。</div>`;
@@ -51,8 +51,52 @@ function renderHistory(){const rows=view.book?.rows||[];
  if(!rows.length){$('history-content').innerHTML=empty('你的第一笔记录，从这里开始','信号只是一份计划。确认券商的成交价和股数后，再写入交易记录。',state.account?'record-buy':'setup',state.account?'记录买入':'设置策略本金');return;}
  $('history-content').innerHTML=`<div class="card"><div class="scroll"><table><thead><tr><th>日期</th><th>操作</th><th>股数</th><th>实际成交价</th><th>已实现盈亏</th><th>可用现金</th></tr></thead><tbody>${[...rows].reverse().map(x=>`<tr><td>${x.date}${x.deviation?'<small class="danger" style="display:block">偏离策略</small>':''}</td><td><span class="badge-${x.type}">${x.type==='buy'?'买入':'卖出'}</span></td><td>${x.qty}</td><td>${price(x.price)}</td><td class="${x.pnl>=0?'positive':'negative'}">${x.pnl==null?'—':yen(x.pnl)}</td><td>${yen(x.cash)}</td></tr>`).join('')}</tbody></table></div><p class="small muted">记录包含实际成交价格；盈亏按成交价计算，未自动扣税。日期均为日本交易日。记录错误时，可撤销最近一筆再重新填写。</p></div>`;
 }
-const rules=[['入场，四项同时满足','收盘高于MA20；MA20高于5个交易日前；此前3个交易日中至少一日低点触及或低于当日MA10；今日收盘高于昨日最高。只用收盘后确认的数据。'],['次日开盘，尽量满仓','次日开盘相对信号日收盘偏离不超过±3%，按可用资金买入100股整数手，不借钱。有余仓不加仓。股数预估预留0.1%价格空间，实际成交后按实际价格记账。'],['初始止损，锁定1.5ATR','R＝1.5×信号日Wilder ATR14。初始止损＝实际买入价－R。R在买入时锁定，之后不因波动上升而放宽初始风险距离。'],['达到2.5R，先兑现一部分','目标价＝实际买入价＋2.5R。首次达到时卖出约一半，奇数手向上取整：500股先卖300股；只有100股则全部卖出。余仓不设固定目标。'],['移动保护，只上调、不下调','持仓最高收盘价达到买入价＋R后，从下一交易日起，止损取旧止损、买入价、最高收盘价－2×当日ATR中的最高值。盘中冲高本身不启动此条件。'],['持有上限，最多10个交易日','包括买入日。第10个交易日仍未退出，按计划在收盘前清仓；部分止盈不重置计时。另保留28个自然日上限，允许跨财报。'],['最后一笔亏损，暂停5日','最后清空余仓的卖出成交相对买入价亏损，就跳过随后5个交易日。即使此前部分止盈让整轮净赚，也暂停。第6个交易日起才可恢复入场，仍需符合信号。'],['真实成交，真实本金','以实际买卖价格与数量记账，盈亏影响下一笔可用资金。记录不会代替券商下单。历史回测采用零手续费、每边0.1%滑点、未扣税；历史最大回撤不是未来损失上限。']];
-$('rules-content').innerHTML=rules.map(([title,text],i)=>`<div class="rule-item"><span class="rule-number">0${i+1}</span><div><h3>${title}</h3><p>${text}</p></div></div>`).join('');
+$('rules-content').innerHTML=`
+<aside class="card rule-definitions" aria-labelledby="indicator-title">
+  <h2 id="indicator-title">先看指标：全部使用日线</h2>
+  <dl class="indicator-list">
+    <div><dt>MA20 ＝ SMA20</dt><dd>最近 20 个交易日的收盘价相加 ÷ 20，是<strong>简单移动平均线，不是 EMA20</strong>。本页统一写作 SMA20。</dd></div>
+    <div><dt>MA10 ＝ SMA10</dt><dd>最近 10 个交易日收盘价的简单平均，也不是 EMA10。均线都包含所计算那一天的收盘价。</dd></div>
+    <div><dt>ATR14 与 R</dt><dd>ATR14 是用 Wilder 平滑法计算的 14 日平均真实波幅，单位是日元。<strong>R ＝ 1.5 × 信号日 ATR14</strong>，入场时锁定。</dd></div>
+  </dl>
+</aside>
+<nav class="rule-nav" aria-label="策略规则分区"><a href="#rules-entry">入场</a><a href="#rules-profit">止盈</a><a href="#rules-stop">止损</a><a href="#rules-time">持仓与暂停</a></nav>
+<section id="rules-entry" class="card rule-section" aria-labelledby="entry-title">
+  <div class="rule-section-heading"><span class="rule-section-mark" aria-hidden="true">01</span><div><h2 id="entry-title">入场规则</h2><p>先确认收盘信号，再核对下一交易日开盘。</p></div></div>
+  <h3>收盘后，以下四项必须同时满足</h3>
+  <ol class="rule-checklist">
+    <li>今日收盘价 <strong>高于日线 SMA20</strong>。</li>
+    <li>今日 SMA20 <strong>高于 5 个交易日前的 SMA20</strong>。</li>
+    <li>今日之前的 3 个交易日中，至少有一天的最低价<strong>触及或低于那一天的 SMA10</strong>，不包含今天。</li>
+    <li>今日收盘价 <strong>高于上一交易日最高价</strong>。</li>
+  </ol>
+  <h3>下一交易日，满足条件才买</h3>
+  <ul class="rule-checklist"><li>开盘价相对信号日收盘价的偏离<strong>不超过 ±3%</strong>；超过则跳过这次机会。</li><li>当前必须空仓，且已结束暂停期；按可用现金尽量买满，以 <strong>100 股为一手</strong>，不使用杠杆，有余仓不加仓。</li><li>股数预估预留 0.1% 价格空间；成交后录入券商的实际买入价和股数。</li></ul>
+</section>
+<section id="rules-profit" class="card rule-section" aria-labelledby="profit-title">
+  <div class="rule-section-heading"><span class="rule-section-mark" aria-hidden="true">02</span><div><h2 id="profit-title">止盈规则</h2><p>达到目标先卖一部分，剩余仓位继续按规则管理。</p></div></div>
+  <div class="rule-formula"><span>首次分批止盈价</span><strong>实际买入价 ＋ 2.5 × R</strong></div>
+  <ul class="rule-checklist"><li>首次达到目标时，卖出初始股数的<strong>约一半</strong>，不足整手时向上取整：500 股先卖 300 股；只有 100 股则全部卖出。</li><li>这次分批止盈<strong>只执行一次</strong>，剩余仓位不设固定止盈目标。</li><li>余仓仍受<strong>移动止损和最多 10 个交易日</strong>限制；分批止盈不重新计算持仓天数。</li></ul>
+</section>
+<section id="rules-stop" class="card rule-section" aria-labelledby="stop-title">
+  <div class="rule-section-heading"><span class="rule-section-mark" aria-hidden="true">03</span><div><h2 id="stop-title">止损规则</h2><p>先锁定初始止损；保护启动后，止损价只能上调。</p></div></div>
+  <h3>买入时：锁定初始止损</h3>
+  <div class="rule-formula"><span>初始止损价</span><strong>实际买入价 − R</strong></div>
+  <p>R 使用信号日的 ATR14，之后不因波动变大而放宽初始风险距离。盘中触及有效止损价，就按规则退出剩余仓位。</p>
+  <h3>盈利后：启动移动止损</h3>
+  <p>持仓期间的最高收盘价达到<strong>实际买入价 ＋ R</strong>后，从<strong>下一交易日</strong>开始启用移动保护。仅盘中冲高不算触发。</p>
+  <div class="rule-formula"><span>下一交易日止损价，取以下三者最高值</span><ul><li>原有效止损价</li><li>实际买入价</li><li>持仓最高收盘价 − 2 × 当日 ATR14</li></ul></div>
+  <p>后续每个收盘后更新，下一交易日生效，<strong>只上调、不下调</strong>。跳空跌破止损时，实际成交可能低于止损价；页面不代替券商下单。</p>
+</section>
+<section id="rules-time" class="card rule-section" aria-labelledby="time-title">
+  <div class="rule-section-heading"><span class="rule-section-mark" aria-hidden="true">04</span><div><h2 id="time-title">持仓期限与暂停</h2><p>交易日不包含周末和日本股市休市日。</p></div></div>
+  <h3>最多持有 10 个交易日</h3>
+  <p><strong>买入当天算第 1 天</strong>。第 10 个交易日仍有仓位，无论盈亏都按计划在收盘前清仓；不采用亏损延期规则。另保留 28 个自然日上限，允许跨财报持仓。</p>
+  <h3>亏损清仓后，暂停 5 个交易日</h3>
+  <p>最后一次清空余仓的卖出成交价低于买入价，就跳过<strong>随后 5 个交易日</strong>；即使此前部分止盈让整笔交易净赚，也暂停。第 6 个交易日起可重新入场，仍须满足全部入场条件。</p>
+  <h3>本金跟随实际盈亏变化</h3>
+  <p>按实际成交价格和数量记账，盈利和亏损都会影响下一笔可用资金。余仓清空前不将卖出现金投入新仓。历史回测手续费为 0、每边滑点 0.1%、未扣税；历史最大回撤不是未来损失上限。</p>
+</section>`;
 function field(id,label,type='text',value='',extra=''){return `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="${type}" value="${esc(value)}" ${extra} required></div>`;}
 function openDialog(mode){
  if(!view)return;dialogMode=mode;$('form-error').textContent='';$('submit-dialog').textContent='保存';
