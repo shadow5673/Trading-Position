@@ -25,7 +25,7 @@ R = 1.5 × 信号日 Wilder ATR14。初始止损 P−R；P+2.5R 先卖约一半�
 - `data/market.json`：285A.T Yahoo 日线。包含既有回测历史。
 - `data/calendar.json`：日本现货交易日历，截至 2027 年底；JPX 官方休市日。
 - 页面支持逐日补录或 `date,open,high,low,close,volume` 格式 CSV，成交量为股。只接收完整收盘数据；缺日、重复、错误高低价会拒绝。
-- `update-market.yml` 在日本时间工作日 16:20/18:20 尝试刷新。Yahoo 访问失败、历史价格变化、拆股、数据缺失时失败关闭，不用错误数据覆盖旧文件。GitHub 定时任务可能延迟、停用或遇到访问限制；页面会以真实日期提示过期，仍可手工补录。
+- `update-market.yml` 在日本时间工作日 16:20/18:20 尝试刷新；修改该工作流或 `scripts/update_market.py` 并推送到 main 时也会运行一次以自检。Yahoo 访问失败、历史价格变化、拆股、数据缺失时失败关闭，不用错误数据覆盖旧文件。GitHub 定时任务可能延迟、停用或遇到访问限制；页面会以真实日期提示过期，仍可手工补录。
 - 自动更新提交后显式请求原 GitHub Pages 分支构建；需要仓库 Actions 的 contents/pages 写权限以及原有 Pages 配置。不会创建新的域名。
 
 ## 隐私
