@@ -1,0 +1,39 @@
+name: Update completed daily quotes
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 7,9 * * 1-5'
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: daily-quotes
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Fetch complete daily bars
+        run: python scripts/update_market.py
+      - name: Verify history and strategy
+        run: npm test
+      - name: Save quotes and request Pages rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- data/market.json; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/market.json
+          git commit -m "Update completed 285A daily quotes"
+          git push
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
