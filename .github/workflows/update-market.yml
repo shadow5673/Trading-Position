@@ -1,6 +1,11 @@
 name: Update completed daily quotes
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update-market.yml
+      - scripts/update_market.py
   schedule:
     - cron: '20 7,9 * * 1-5'
 permissions:
