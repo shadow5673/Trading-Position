@@ -4,10 +4,9 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 ROOT=Path(__file__).resolve().parents[1]
 
-def main():
- parser=argparse.ArgumentParser();parser.add_argument('--dry-run',action='store_true');args=parser.parse_args()
+def update(now=None,dry_run=False):
  path=ROOT/'data/market.json';old=json.loads(path.read_text());cal=json.loads((ROOT/'data/calendar.json').read_text())
- now=dt.datetime.now(ZoneInfo('Asia/Tokyo'));today=now.date().isoformat()
+ now=now or dt.datetime.now(ZoneInfo('Asia/Tokyo'));today=now.date().isoformat()
  assert cal['start']<=today<=cal['end'],'Calendar must be updated before refreshing quotes.'
  def session(date):return date.weekday()<5 and date.isoformat() not in cal['holidays']
  end=now.date()
@@ -29,7 +28,9 @@ def main():
   if bar['date'] in existing:
    assert all(abs(bar[k]-existing[bar['date']][k])<=max(.01,abs(bar[k])*1e-6) for k in ['open','high','low','close']),f'Historical prices changed on {date}; manual review required.'
   elif bar['date']>old['bars'][-1]['date']:incoming.append(bar)
- if not incoming:print('No new completed bars; existing file retained.');return
+ if not incoming:
+  assert old['bars'][-1]['date']>=end.isoformat(),f'Latest data {old["bars"][-1]["date"]} is stale; expected {end}. Provider has not supplied the completed bar; retry later.'
+  print(f'Already current through {end}; no new completed bars, existing file retained.');return
  incoming.sort(key=lambda b:b['date']);previous=dt.date.fromisoformat(old['bars'][-1]['date'])
  for b in incoming:
   expected=previous+dt.timedelta(days=1)
@@ -38,8 +39,11 @@ def main():
   previous=expected
  assert previous==end,f'Latest data {previous} is stale; expected {end}'
  new={**old,'bars':old['bars']+incoming,'updatedAt':now.isoformat()}
- if args.dry_run:print(f'Validated {len(incoming)} new bars through {previous}; dry run, no write.')
+ if dry_run:print(f'Validated {len(incoming)} new bars through {previous}; dry run, no write.')
  else:
   temp=path.with_suffix('.tmp');temp.write_text(json.dumps(new,ensure_ascii=False,separators=(',',':')));temp.replace(path)
   print(f'Added {len(incoming)} completed bars through {previous}.')
+def main():
+ parser=argparse.ArgumentParser();parser.add_argument('--dry-run',action='store_true');args=parser.parse_args()
+ update(dry_run=args.dry_run)
 if __name__=='__main__':main()

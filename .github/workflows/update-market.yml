@@ -7,7 +7,8 @@ on:
       - .github/workflows/update-market.yml
       - scripts/update_market.py
   schedule:
-    - cron: '20 7,9 * * 1-5'
+    # JST 16:20–23:50, every 30 minutes. GitHub may delay/drop scheduled runs.
+    - cron: '20,50 7-14 * * 1-5'
 permissions:
   contents: write
   pages: write
@@ -17,8 +18,11 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -28,7 +32,9 @@ jobs:
       - name: Fetch complete daily bars
         run: python scripts/update_market.py
       - name: Verify history and strategy
-        run: npm test
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py'
+          npm test
       - name: Save quotes and request Pages rebuild
         env:
           GH_TOKEN: ${{ github.token }}

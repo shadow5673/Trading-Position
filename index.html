@@ -16,6 +16,7 @@
 <div id="dashboard" hidden>
 <div class="hero"><div class="hero-copy"><div class="eyebrow"><span id="status-label">STRATEGY DESK</span><span class="hero-date" id="plan-date"></span></div><h1 id="hero-title"></h1><p id="hero-description"></p><div class="hero-actions"><button id="hero-action" class="button light">设置本金 <span>↗</span></button><span id="hero-note"></span></div></div><div class="hero-market"><div class="market-heading"><span>285A <small>キオクシアHD</small></span><span>日线</span></div><div class="market-price" id="last-price">—</div><div id="price-change" class="market-change"></div><div id="price-chart" class="price-chart"></div><div class="market-foot"><span>近 30 个交易日</span><span id="quote-date"></span></div></div></div>
 <div class="data-line"><span id="freshness"></span><button class="text-btn" id="refresh-data">检查行情更新 ↻</button></div>
+<p id="update-help" class="small muted" hidden>自动更新计划：日本时间工作日 16:20–23:50，每 30 分钟尝试一次，可能因后台排队而延迟。稍后可点“检查行情更新”重新读取。<a href="https://github.com/shadow5673/Trading-Position/actions/workflows/update-market.yml" target="_blank" rel="noopener noreferrer">查看后台任务 ↗</a></p>
 <div class="metrics" id="account-metrics"></div>
 <div class="dashboard-grid"><article class="card signal-card"><div class="card-heading"><div><div class="eyebrow dark">ENTRY CHECKLIST</div><h2>让信号决定入场</h2></div><span id="signal-score" class="pill"></span></div><p class="subtle" id="signal-date"></p><div id="signal-list"></div><div id="entry-plan" class="inset"></div></article>
 <article class="card next-card"><div class="eyebrow dark">NEXT STEP</div><h2>下一步，清楚一点</h2><div id="next-details"></div><div class="mini-rule"><span>01</span><p>信号出现后，核对次日开盘。</p></div><div class="mini-rule"><span>02</span><p>实际成交后，记录价格与股数。</p></div><div class="mini-rule"><span>03</span><p>按计划执行，不自动假设成交。</p></div><button class="button outline wide" data-tab="rules">阅读完整执行规则 <span>→</span></button></article></div>
@@ -31,5 +32,5 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <dialog id="form-dialog"><div class="dialog-head"><div><div class="eyebrow dark" id="dialog-kicker">TRADE DESK</div><h2 id="dialog-title"></h2></div><button class="close-btn" id="close-dialog" aria-label="关闭">×</button></div><form id="action-form"><div id="dialog-fields"></div><div class="form-error" id="form-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button outline" id="cancel-dialog">取消</button><button type="submit" class="button primary" id="submit-dialog">保存</button></div></form></dialog>
 <noscript><p>请启用 JavaScript 以计算策略和保存成交。</p></noscript>
-<script type="module" src="script.js?v=20260919-rule-sections"></script>
+<script type="module" src="script.js?v=20260924-quotes"></script>
 </body></html>

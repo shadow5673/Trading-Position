@@ -55,7 +55,12 @@ test('Trailing stop only changes from next session; initial ATR is frozen',()=>{
 });
 test('Stale data gates new plans, future unfinished daily bar never enters indicators',()=>{
  const account={initialCash:30000000,startDate:'2026-07-01',events:[]};
- const v=S.makeView(account,data.bars,cal,new Date('2026-09-24T07:30:00Z'));assert.equal(v.status,'stale');assert.equal(v.expected,'2026-09-24');
+ // Freeze the stale fixture; the live market file legitimately gains newer bars.
+ const history=data.bars.filter(b=>b.date<='2026-09-18');
+ const v=S.makeView(account,history,cal,new Date('2026-09-24T07:30:00Z'));assert.equal(v.status,'stale');assert.equal(v.expected,'2026-09-24');
+ const completed=[...history,{...history.at(-1),date:'2026-09-24'}];
+ const fresh=S.makeView(account,completed,cal,new Date('2026-09-24T07:30:00Z'));assert.notEqual(fresh.status,'stale');assert.equal(fresh.latest.date,'2026-09-24');
+ assert.equal(S.makeView(account,completed,cal,new Date('2026-09-24T02:00:00Z')).latest.date,'2026-09-18');
  const midday=S.makeView(account,data.bars,cal,new Date('2026-09-18T02:00:00Z'));assert.equal(midday.latest.date,'2026-09-17');
 });
 test('Invalid/missing data and impossible trades are rejected',()=>{
