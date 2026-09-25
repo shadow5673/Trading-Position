@@ -73,13 +73,32 @@ export function levels(position,bars,beforeDate) {
  for(const b of bars){if(b.date<position.entryDate||b.date>=beforeDate)continue;maxClose=Math.max(maxClose,b.close);if(maxClose>=position.entry+position.R){active=true;stop=Math.max(stop,position.entry,maxClose-2*b.atr);}}
  return {stop,maxClose,active,target:position.target,activation:position.entry+position.R};
 }
-export function makeView(account,rawBars,cal,now=new Date()) {
+// Data stores prices and fills in their actual trading-day units. Only derived
+// views are normalized; persisted trades and cash never change on a split.
+export function splitFactor(date,basis,splits=[]) {
+ return splits.filter(s=>date<s.date&&s.date<=basis).reduce((f,s)=>{
+  assert(validDate(s.date)&&Number.isInteger(s.ratio)&&s.ratio>=2,'拆股记录无效，请先核对公司公告。');return f*s.ratio;
+ },1);
+}
+export function normalizedBars(raw,splits,basis){return raw.map(b=>{
+ const f=splitFactor(b.date,basis,splits);return {...b,...Object.fromEntries(['open','high','low','close'].map(k=>[k,b[k]/f])),volume:b.volume*f};
+});}
+export function tradeIndicators(raw,splits,date){return enrich(normalizedBars(raw.filter(b=>b.date<date),splits,date));}
+export function normalizedAccount(account,splits,basis){
+ if(!account)return account;
+ return {...account,events:account.events.map(e=>{
+  assert(Number.isInteger(e.qty)&&e.qty>0&&e.qty%100===0,'实际成交股数必须是100的正整数倍。');
+  const f=splitFactor(e.date,basis,splits);return {...e,price:e.price/f,qty:e.qty*f,...(e.opening!=null?{opening:e.opening/f}:{}),...(e.signalATR!=null?{signalATR:e.signalATR/f}:{})};
+ })};
+}
+export function makeView(account,rawBars,cal,now=new Date(),splits=[]) {
  const time=jstNow(now),expected=expectedCloseDate(cal,now);
  if(account){assert(account.startDate<=time.date,'账户起始日不能在未来。');assert(Array.isArray(account.events)&&account.events.every(e=>e.date<=time.date),'不能记录未来成交。');}
- const bars=enrich(rawBars.filter(b=>b.date<=expected));const latest=bars.at(-1);assert(latest,'尚无已收盘行情。');
- const fresh=latest.date===expected,planDate=nextSession(latest.date,cal),book=account?ledger(account,bars,cal):null;
- const p=book?.position;
  const intendedDate=isSession(time.date,cal)&&time.minutes<930?time.date:nextSession(time.date,cal);
+ const bars=enrich(normalizedBars(rawBars.filter(b=>b.date<=expected),splits,intendedDate));const latest=bars.at(-1);assert(latest,'尚无已收盘行情。');
+ const fresh=latest.date===expected,planDate=nextSession(latest.date,cal),book=account?ledger(normalizedAccount(account,splits,intendedDate),bars,cal):null;
+ if(book)book.rows=book.rows.map((r,i)=>({...r,price:account.events[i].price,qty:account.events[i].qty}));
+ const p=book?.position;
  const lv=p?levels(p,bars,intendedDate):null;
  const stalePosition=!!p&&latest.date<prevSession(intendedDate,cal);
  const value=book?book.cash+(p?p.qty*(latest.date>=p.entryDate?latest.close:p.entry):0):null;
@@ -93,7 +112,7 @@ export function makeView(account,rawBars,cal,now=new Date()) {
   else if(latest.signal){status='ready';title='信号成立，等待下一次开盘';description=`${planDate} 开盘落在允许区间内，才满足下一步买入条件。`;}
   else {status='watch';title='保持空仓，等待完整信号';description='四项入场条件尚未全部满足。今天不需要为了交易而交易。';}
  }
- return {time,expected,bars,latest,fresh,planDate,intendedDate,book,levels:lv,value,status,title,description,stalePosition};
+ return {time,expected,bars,latest,fresh,planDate,intendedDate,book,levels:lv,value,status,title,description,stalePosition,splitBasis:intendedDate,quoteFactor:splitFactor(latest.date,intendedDate,splits)};
 }
 export function parseCSV(text) {
  const lines=text.replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(x=>x.trim());assert(lines.length>=2,'CSV至少需要表头和一行数据。');

@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import * as S from '../strategy.js';
+import * as P from '../portfolio.js';
+const cal=JSON.parse(fs.readFileSync(new URL('../data/calendar.json',import.meta.url)));
+const k=JSON.parse(fs.readFileSync(new URL('../data/market.json',import.meta.url)));
+const ib=JSON.parse(fs.readFileSync(new URL('../data/market-4062.json',import.meta.url)));
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
+const now=new Date('2026-09-25T10:00:00Z');
+test('Legacy Kioxia storage and unsigned backups stay with Kioxia; IBIDEN is independent',()=>{
+ const legacy={version:S.VERSION,account:{initialCash:15000000,startDate:'2026-09-18',events:[]},customBars:[]};
+ const raw=JSON.stringify(legacy),items=new Map([[P.storageKey('285A'),raw]]);
+ const storage={getItem:k=>items.get(k)||null};
+ const a=P.loadState(storage,'285A'),b=P.loadState(storage,'4062');
+ assert.deepEqual(a.account,legacy.account);assert.equal(b.account.initialCash,10000000);
+ b.account.events.push({type:'buy'});assert.equal(a.account.events.length,0);
+ assert.equal(items.get(P.storageKey('285A')),raw);
+ assert.throws(()=>P.decodeState(legacy,'4062'),/股票不一致/);
+ assert.throws(()=>P.decodeState({...legacy,symbol:'4062'},'285A'),/股票不一致/);
+});
+test('IBIDEN history is contiguous; one stale ticker cannot suppress fresh other ticker',()=>{
+ S.validateBars(ib.bars,cal);
+ const a=P.contextView(P.newState('285A','2026-09-18'),k,cal,now).view;
+ const b=P.contextView(P.newState('4062','2026-09-18'),{...ib,bars:ib.bars.filter(x=>x.date<'2026-09-25')},cal,now).view;
+ assert.equal(a.fresh,true);assert.equal(b.status,'stale');assert.equal(P.totals([a,b]).value,20000000);
+});
+test('Split boundary halves prices and doubles shares without changing cash/equity/ATR protection',()=>{
+ const dates=S.sessionsBetween('2026-08-03','2026-09-30',cal);
+ const splits=[{date:'2026-09-29',ratio:2}];
+ const raw=dates.map(date=>({date,open:date<'2026-09-29'?1000:500,high:date<'2026-09-29'?1010:505,low:date<'2026-09-29'?990:495,close:date<'2026-09-29'?1000:500,volume:1000}));
+ const account={initialCash:1000000,startDate:'2026-09-01',events:[{type:'buy',date:'2026-09-25',price:1000,qty:300,opening:1000,signalATR:20,override:true}]};
+ const before=S.makeView(account,raw,cal,new Date('2026-09-25T08:00:00Z'),splits);
+ const after=S.makeView(account,raw,cal,new Date('2026-09-28T08:00:00Z'),splits);
+ near(before.value,after.value);near(before.book.cash,after.book.cash);near(after.book.position.R,before.book.position.R/2);
+ assert.equal(after.book.position.qty,600);assert.equal(after.levels.stop,before.levels.stop/2);assert.equal(after.book.position.target,before.book.position.target/2);
+ assert.equal(after.book.rows[0].qty,300);assert.equal(after.book.rows[0].price,1000);assert.equal(account.events[0].qty,300);
+ assert.equal(after.quoteFactor,2);assert.equal(before.quoteFactor,1);
+ const post=structuredClone(account);post.events.push({type:'sell',date:'2026-09-29',price:550,qty:300});
+ const v=S.makeView(post,raw,cal,new Date('2026-09-29T08:00:00Z'),splits);
+ near(v.book.realized,15000);assert.equal(v.book.position.qty,300);assert.equal(v.book.position.partialDone,true);
+ post.events.push({type:'sell',date:'2026-09-30',price:490,qty:300});
+ const done=S.makeView(post,raw,cal,new Date('2026-09-30T08:00:00Z'),splits);
+ near(done.book.cash,1012000);assert.equal(done.book.position,null);assert.equal(done.book.cooldownEnd,'2026-10-07');
+ near(S.tradeIndicators(raw,splits,'2026-09-29').at(-1).atr,10);
+ const invalid=structuredClone(account);invalid.events[0].qty=50;
+ assert.throws(()=>S.makeView(invalid,raw,cal,new Date('2026-09-29T08:00:00Z'),splits),/100/);
+});
+test('Both actual-fill ledgers have independent cash, pause, and loss compounding',()=>{
+ const account={initialCash:10000000,startDate:'2026-09-01',events:[{type:'buy',date:'2026-09-18',qty:100,price:20000,opening:20000,override:true},{type:'sell',date:'2026-09-24',qty:100,price:19000}]};
+ const v=P.contextView({...P.newState('4062','2026-09-01'),account},ib,cal,now).view;
+ const untouched=P.contextView(P.newState('285A','2026-09-01'),k,cal,now).view;
+ assert.equal(v.book.cash,9900000);assert.equal(v.status,'cooldown');assert.equal(untouched.book.cooldownEnd,null);assert.equal(untouched.book.cash,10000000);
+ near(P.totals([v,untouched]).value,19900000);
+});

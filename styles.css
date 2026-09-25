@@ -29,3 +29,14 @@
 .rule-formula>strong{font-size:19px;line-height:1.7}
 .rule-formula ul{padding-left:20px;margin:0;font-size:15px;line-height:1.9}
 @media(max-width:680px){.rules-layout{gap:16px}.rule-definitions h2{font-size:18px}.indicator-list>div{grid-template-columns:1fr;gap:4px}.rule-nav{gap:8px}.rule-nav a{padding:10px 13px;font-size:13px}.rule-section .rule-section-heading h2{font-size:21px}.rule-section-heading{gap:12px;margin-bottom:20px}.rule-section h3{font-size:16px}.rule-section p,.rule-checklist{font-size:14px}.rule-formula{padding:15px}.rule-formula>strong{font-size:17px}}
+
+/* Independent stock accounts, shared portfolio overview. */
+.stock-switch{display:flex;gap:8px;margin:0 0 20px;padding:5px;background:#e5edf7;border-radius:13px}
+.stock-switch button{flex:1;padding:12px 10px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:16px;min-height:48px}
+.stock-switch button small{font-size:12px;display:inline-block;margin-left:5px}
+.stock-switch button.selected{background:var(--navy);color:white;box-shadow:0 3px 8px #142c4917}
+#stock-context{margin:0 2px 18px;line-height:1.7;color:var(--ink)}
+.portfolio-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:24px 0}
+.portfolio-card{display:flex;flex-direction:column}.portfolio-card h3{font-size:18px;line-height:1.6;margin:12px 0 0}.portfolio-card .button{margin-top:auto}
+.portfolio-card p{margin:12px 0 20px}.portfolio-value{font-size:32px;font-weight:550;margin-top:22px;font-variant-numeric:tabular-nums}.portfolio-value small{font-size:15px;margin-left:7px}
+@media(max-width:680px){.portfolio-grid{grid-template-columns:1fr;gap:16px}.stock-switch button{font-size:15px;padding:11px 6px}.stock-switch button small{display:block;margin:3px 0 0}.portfolio-value{font-size:30px}.portfolio-card h3{font-size:18px}.stock-switch{margin-bottom:18px}}

@@ -75,3 +75,25 @@ class QuoteUpdateTests(unittest.TestCase):
 
 if __name__=='__main__':
     unittest.main()
+
+class IndependentStockTests(unittest.TestCase):
+    def test_failed_first_stock_still_updates_second(self):
+        with patch.object(updater,'update',side_effect=[ValueError('feed failed'),None]) as mock:
+            errors=updater.update_all()
+        self.assertEqual(len(errors),1)
+        self.assertEqual([c.kwargs['symbol'] for c in mock.call_args_list],['285A.T','4062.T'])
+
+    def test_verified_split_recovers_actual_history_without_false_crash(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'data').mkdir()
+            (root/'data/calendar.json').write_text(json.dumps(dict(start='2026-01-01',end='2026-12-31',holidays=[])))
+            path=root/'data/market-4062.json'
+            old=dict(date='2026-09-28',open=1000,high=1020,low=980,close=1000,volume=100)
+            path.write_text(json.dumps(dict(symbol='4062.T',splits=[dict(date='2026-09-29',ratio=2)],bars=[old])))
+            stamps=[int(dt.datetime(2026,9,day,9,tzinfo=ZoneInfo('Asia/Tokyo')).timestamp()) for day in [28,29]]
+            feed=dict(meta=dict(symbol='4062.T'),timestamp=stamps,events=dict(splits={'a':dict(date=stamps[1],numerator=2,denominator=1)}),indicators=dict(quote=[dict(open=[500,500],high=[510,520],low=[490,495],close=[500,510],volume=[100,200])]))
+            with patch.object(updater,'ROOT',root),patch.object(updater.urllib.request,'urlopen',return_value=io.BytesIO(json.dumps(dict(chart=dict(result=[feed]))).encode())):
+                updater.update(now=dt.datetime(2026,9,29,18,tzinfo=ZoneInfo('Asia/Tokyo')),symbol='4062.T',filename='market-4062.json')
+            out=json.loads(path.read_text())
+            self.assertEqual(out['bars'][0],old)
+            self.assertEqual(out['bars'][1]['close'],510)
