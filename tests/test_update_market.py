@@ -46,6 +46,41 @@ class QuoteUpdateTests(unittest.TestCase):
             self.run_feed([self.old_bar])
         self.assertEqual(self.market.read_bytes(),self.original)
 
+    def test_current_data_skips_provider_even_on_delayed_weekend_run(self):
+        friday={**self.new_bar,'date':'2026-09-25'}
+        self.market.write_text(json.dumps(dict(symbol='285A.T',bars=[self.old_bar,self.new_bar,friday])))
+        saved=self.market.read_bytes()
+        with patch.object(updater,'ROOT',self.root), patch.object(updater.urllib.request,'urlopen',side_effect=OSError('Provider unavailable')) as fetch:
+            updater.update(now=self.now.replace(day=25))
+            updater.update(now=self.now.replace(day=26,hour=2,minute=35))
+        fetch.assert_not_called()
+        self.assertEqual(self.market.read_bytes(),saved)
+
+    def test_invalid_stored_current_bar_must_not_report_success(self):
+        for fields in [{'close':None},{'high':100.}]:
+            with self.subTest(fields=fields):
+                self.market.write_text(json.dumps(dict(symbol='285A.T',bars=[self.old_bar,{**self.new_bar,**fields}])))
+                saved=self.market.read_bytes()
+                with patch.object(updater,'ROOT',self.root), patch.object(updater.urllib.request,'urlopen') as fetch:
+                    with self.assertRaisesRegex(AssertionError,'Invalid stored'):
+                        updater.update(now=self.now)
+                fetch.assert_not_called()
+                self.assertEqual(self.market.read_bytes(),saved)
+
+    def test_invalid_new_bar_still_fails_and_preserves_file(self):
+        for fields in [{'close':None},{'volume':0}]:
+            with self.subTest(fields=fields):
+                with self.assertRaisesRegex(AssertionError,'Invalid daily row 2026-09-24'):
+                    self.run_feed([self.old_bar,{**self.new_bar,**fields}])
+                self.assertEqual(self.market.read_bytes(),self.original)
+
+    def test_future_stored_bar_fails_closed(self):
+        self.market.write_text(json.dumps(dict(symbol='285A.T',bars=[self.old_bar,self.new_bar])))
+        with patch.object(updater,'ROOT',self.root), patch.object(updater.urllib.request,'urlopen') as fetch:
+            with self.assertRaisesRegex(AssertionError,'unfinished or future session'):
+                updater.update(now=self.now.replace(hour=12))
+        fetch.assert_not_called()
+
     def test_holiday_without_new_bar_is_success(self):
         self.run_feed([self.old_bar],now=self.now.replace(day=23))
         self.assertEqual(self.market.read_bytes(),self.original)
