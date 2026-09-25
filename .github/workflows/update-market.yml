@@ -30,6 +30,8 @@ jobs:
         with:
           node-version: '24'
       - name: Fetch complete daily bars
+        id: fetch
+        continue-on-error: true
         run: python scripts/update_market.py
       - name: Verify history and strategy
         run: |
@@ -39,12 +41,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet -- data/market.json; then
+          if git diff --quiet -- data/market.json data/market-4062.json; then
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/market.json
-          git commit -m "Update completed 285A daily quotes"
+          git add data/market.json data/market-4062.json
+          git commit -m "Update completed KIOXIA and IBIDEN daily quotes"
           git push
           gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
+      - name: Report incomplete stock updates
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "One or more stocks could not update. Valid updates were published independently. See fetch logs."
+          exit 1
