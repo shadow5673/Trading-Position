@@ -15,6 +15,14 @@ def update(now=None,dry_run=False,symbol='285A.T',filename='market.json'):
  if now.hour*60+now.minute<930 or not session(end):
   end-=dt.timedelta(days=1)
   while not session(end):end-=dt.timedelta(days=1)
+ # A later scheduled retry must not re-fetch a session already saved successfully.
+ # Still validate the stored closing bar before declaring the file current.
+ latest=old['bars'][-1]
+ assert latest['date']<=end.isoformat(),'Stored data contains an unfinished or future session.'
+ if latest['date']==end.isoformat():
+  assert all(isinstance(latest[k],(int,float)) and not isinstance(latest[k],bool) and math.isfinite(latest[k]) and latest[k]>0 for k in ['open','high','low','close','volume']),'Invalid stored daily row.'
+  assert latest['low']<=min(latest['open'],latest['close'])<=max(latest['open'],latest['close'])<=latest['high'],'Invalid stored OHLC order.'
+  print(f'{symbol}: Already current through {end}; provider request skipped, existing file retained.');return
  url=f'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=3mo&interval=1d&events=splits'
  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Accept':'application/json'})
  with urllib.request.urlopen(req,timeout=30) as response:raw=json.load(response)
