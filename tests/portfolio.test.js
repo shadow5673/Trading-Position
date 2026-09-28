@@ -53,3 +53,15 @@ test('Both actual-fill ledgers have independent cash, pause, and loss compoundin
  assert.equal(v.book.cash,9900000);assert.equal(v.status,'cooldown');assert.equal(untouched.book.cooldownEnd,null);assert.equal(untouched.book.cash,10000000);
  near(P.totals([v,untouched]).value,19900000);
 });
+test('Verified Kioxia three-for-one split preserves equity and converts all protection levels',()=>{
+ assert.deepEqual(k.splits.map(({date,ratio})=>({date,ratio})),[{date:'2026-09-29',ratio:3}]);
+ const raw=S.sessionsBetween('2026-08-03','2026-09-30',cal).map(date=>({date,open:60000,high:60100,low:59900,close:60000,volume:1000}));
+ const account={initialCash:10000000,startDate:'2026-09-01',events:[{type:'buy',date:'2026-09-25',price:60000,qty:100,opening:60000,signalATR:3000,override:true}]};
+ const before=S.makeView(account,raw,cal,new Date('2026-09-25T08:00:00Z'),k.splits);
+ const after=S.makeView(account,raw,cal,new Date('2026-09-28T08:00:00Z'),k.splits);
+ near(before.value,after.value);near(before.book.cash,after.book.cash);
+ assert.equal(after.book.position.qty,300);near(after.book.position.R,before.book.position.R/3);
+ near(after.levels.stop,before.levels.stop/3);near(after.book.position.target,before.book.position.target/3);
+ assert.equal(after.book.rows[0].qty,100);assert.equal(after.book.rows[0].price,60000);
+ assert.equal(after.quoteFactor,3);
+});

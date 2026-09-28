@@ -11,6 +11,15 @@ from zoneinfo import ZoneInfo
 from scripts import update_market as updater
 
 
+def history_html(bars,symbol='285A.T'):
+    header='<tr>'+''.join('<th>'+v+'</th>' for v in ['日付','始値','高値','安値','終値','出来高','調整後終値'])+'</tr>'
+    rows=''
+    for b in reversed(bars):
+        cells=[b['date'].replace('-','/')]+[str(b[k]) for k in ['open','high','low','close','volume']]+['1.23']
+        rows+='<tr>'+''.join('<td><span>'+v+'</span></td>' for v in cells)+'</tr>'
+    return f'<title>企業【{symbol.removesuffix(".T")}】：株価時系列</title><table>{header}{rows}</table>'
+
+
 class QuoteUpdateTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -26,11 +35,8 @@ class QuoteUpdateTests(unittest.TestCase):
         self.original = self.market.read_bytes()
         self.now = dt.datetime(2026,9,24,18,20,tzinfo=ZoneInfo('Asia/Tokyo'))
 
-    def run_feed(self, bars, now=None, splits=False, dry_run=False):
-        root = dict(meta={'symbol':'285A.T'}, timestamp=[int(dt.datetime.fromisoformat(b['date']).replace(tzinfo=ZoneInfo('Asia/Tokyo'),hour=9).timestamp()) for b in bars], indicators={'quote':[{k:[b[k] for b in bars] for k in ['open','high','low','close','volume']}]})
-        if splits:
-            root['events']={'splits':{'x':{'numerator':2,'denominator':1}}}
-        payload = json.dumps({'chart':{'result':[root]}}).encode()
+    def run_feed(self, bars, now=None, dry_run=False):
+        payload=history_html(bars).encode()
         with patch.object(updater,'ROOT',self.root), patch.object(updater.urllib.request,'urlopen',return_value=io.BytesIO(payload)):
             updater.update(now=now or self.now,dry_run=dry_run)
 
@@ -70,7 +76,7 @@ class QuoteUpdateTests(unittest.TestCase):
     def test_invalid_new_bar_still_fails_and_preserves_file(self):
         for fields in [{'close':None},{'volume':0}]:
             with self.subTest(fields=fields):
-                with self.assertRaisesRegex(AssertionError,'Invalid daily row 2026-09-24'):
+                with self.assertRaisesRegex((AssertionError,ValueError),'Invalid daily row 2026-09-24'):
                     self.run_feed([self.old_bar,{**self.new_bar,**fields}])
                 self.assertEqual(self.market.read_bytes(),self.original)
 
@@ -89,12 +95,16 @@ class QuoteUpdateTests(unittest.TestCase):
         self.run_feed([self.old_bar,self.new_bar],now=self.now.replace(hour=12))
         self.assertEqual(self.market.read_bytes(),self.original)
 
-    def test_changed_history_and_splits_fail_closed(self):
+    def test_changed_history_fails_closed(self):
         changed=copy.deepcopy(self.old_bar);changed['close']=106.
         with self.assertRaisesRegex(AssertionError,'Historical prices changed'):
             self.run_feed([changed,self.new_bar])
-        with self.assertRaisesRegex(ValueError,'Split detected'):
-            self.run_feed([self.old_bar,self.new_bar],splits=True)
+        self.assertEqual(self.market.read_bytes(),self.original)
+
+    def test_unexplained_split_adjusted_new_row_rejected(self):
+        adjusted={**self.new_bar,**{k:self.new_bar[k]/3 for k in ['open','high','low','close']}}
+        with self.assertRaisesRegex(AssertionError,'Unexplained price discontinuity'):
+            self.run_feed([self.old_bar,adjusted])
         self.assertEqual(self.market.read_bytes(),self.original)
 
     def test_gap_in_sessions_fails_closed(self):
@@ -118,17 +128,33 @@ class IndependentStockTests(unittest.TestCase):
         self.assertEqual(len(errors),1)
         self.assertEqual([c.kwargs['symbol'] for c in mock.call_args_list],['285A.T','4062.T'])
 
-    def test_verified_split_recovers_actual_history_without_false_crash(self):
+    def test_verified_split_accepts_actual_prices_without_false_crash(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'data').mkdir()
             (root/'data/calendar.json').write_text(json.dumps(dict(start='2026-01-01',end='2026-12-31',holidays=[])))
             path=root/'data/market-4062.json'
             old=dict(date='2026-09-28',open=1000,high=1020,low=980,close=1000,volume=100)
             path.write_text(json.dumps(dict(symbol='4062.T',splits=[dict(date='2026-09-29',ratio=2)],bars=[old])))
-            stamps=[int(dt.datetime(2026,9,day,9,tzinfo=ZoneInfo('Asia/Tokyo')).timestamp()) for day in [28,29]]
-            feed=dict(meta=dict(symbol='4062.T'),timestamp=stamps,events=dict(splits={'a':dict(date=stamps[1],numerator=2,denominator=1)}),indicators=dict(quote=[dict(open=[500,500],high=[510,520],low=[490,495],close=[500,510],volume=[100,200])]))
-            with patch.object(updater,'ROOT',root),patch.object(updater.urllib.request,'urlopen',return_value=io.BytesIO(json.dumps(dict(chart=dict(result=[feed]))).encode())):
+            fresh=dict(date='2026-09-29',open=500,high=520,low=495,close=510,volume=200)
+            with patch.object(updater,'ROOT',root),patch.object(updater.urllib.request,'urlopen',return_value=io.BytesIO(history_html([old,fresh],'4062.T').encode())):
                 updater.update(now=dt.datetime(2026,9,29,18,tzinfo=ZoneInfo('Asia/Tokyo')),symbol='4062.T',filename='market-4062.json')
             out=json.loads(path.read_text())
             self.assertEqual(out['bars'][0],old)
             self.assertEqual(out['bars'][1]['close'],510)
+
+
+class HistoryParserTests(unittest.TestCase):
+    def test_raw_columns_preserved_and_adjusted_close_ignored(self):
+        bar=dict(date='2026-09-28',open=55990,high=56070,low=53340,close=53340,volume=18399200)
+        self.assertEqual(updater.parse_history(history_html([bar]),'285A.T',dt.date(2026,9,28)),[bar])
+
+    def test_wrong_ticker_schema_and_duplicate_rows_rejected(self):
+        bar=dict(date='2026-09-28',open=100,high=110,low=90,close=100,volume=1000)
+        for html in [history_html([bar],'4062.T'),history_html([bar]).replace('出来高','調整出来高'),history_html([bar,bar])]:
+            with self.assertRaises(AssertionError):updater.parse_history(html,'285A.T',dt.date(2026,9,28))
+
+    def test_network_retry_then_valid_response(self):
+        bar=dict(date='2026-09-28',open=100,high=110,low=90,close=100,volume=1000)
+        with patch.object(updater.urllib.request,'urlopen',side_effect=[updater.urllib.error.URLError('temporary'),io.BytesIO(history_html([bar]).encode())]) as fetch,patch.object(updater.time,'sleep'):
+            self.assertEqual(updater.fetch_history('285A.T',dt.date(2026,9,28)),[bar])
+        self.assertEqual(fetch.call_count,2)
