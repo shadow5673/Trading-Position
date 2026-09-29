@@ -23,7 +23,7 @@ class HistoryTable(HTMLParser):
   elif tag=='tr' and self.row is not None:self.rows.append(self.row);self.row=None
   elif tag=='table' and self.rows is not None:self.tables.append(self.rows);self.rows=None
 
-def parse_history(html,symbol,end):
+def parse_history(html,symbol,end,splits=()):
  parser=HistoryTable();parser.feed(html)
  assert f'【{symbol.removesuffix(".T")}】' in parser.title,'Unexpected ticker in history page.'
  tables=[t for t in parser.tables if t and t[0][:6]==['日付','始値','高値','安値','終値','出来高']]
@@ -33,6 +33,15 @@ def parse_history(html,symbol,end):
   assert cells and re.fullmatch(r'\d{4}/\d{1,2}/\d{1,2}',cells[0]),'Unexpected history row.'
   date=dt.datetime.strptime(cells[0],'%Y/%m/%d').date()
   if date>end:continue
+  # Corporate-action notices share the date of a separate trading row.
+  # Accept only an exact split notice matching reviewed metadata; never infer a bar.
+  notice=re.fullmatch(r'分割：([0-9]+(?:\.[0-9]+)?)株→([0-9]+(?:\.[0-9]+)?)株',cells[1]) if len(cells)==2 else None
+  if notice:
+   before,after=map(float,notice.groups())
+   assert before>0 and after>0,f'Invalid split notice {date}'
+   ratio=after/before
+   assert any(x['date']==date.isoformat() and math.isclose(x['ratio'],ratio,rel_tol=1e-9) for x in splits),f'Unverified split notice {date}: {cells[1]}'
+   continue
   assert len(cells)>=6,f'Incomplete daily row {date}'
   assert date not in seen,f'Duplicate daily row {date}'
   seen.add(date)
@@ -45,7 +54,7 @@ def parse_history(html,symbol,end):
  assert bars,'No completed daily rows in history page.'
  return sorted(bars,key=lambda b:b['date'])
 
-def fetch_history(symbol,end):
+def fetch_history(symbol,end,splits=()):
  # The Japanese table explicitly separates actual OHLCV from adjusted close.
  # Never guess a split multiplier from the chart endpoint's mixed-basis rows.
  url=f'https://finance.yahoo.co.jp/quote/{symbol}/history'
@@ -53,7 +62,7 @@ def fetch_history(symbol,end):
   try:
    req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Accept':'text/html'})
    with urllib.request.urlopen(req,timeout=30) as response:html=response.read().decode('utf-8')
-   return parse_history(html,symbol,end)
+   return parse_history(html,symbol,end,splits)
   except (urllib.error.URLError,TimeoutError) as error:
    if attempt==2:raise
    print(f'{symbol}: Temporary history request failure ({error}); retry {attempt+1}/2.')
@@ -77,7 +86,7 @@ def update(now=None,dry_run=False,symbol='285A.T',filename='market.json'):
   assert all(isinstance(latest[k],(int,float)) and not isinstance(latest[k],bool) and math.isfinite(latest[k]) and latest[k]>0 for k in ['open','high','low','close','volume']),'Invalid stored daily row.'
   assert latest['low']<=min(latest['open'],latest['close'])<=max(latest['open'],latest['close'])<=latest['high'],'Invalid stored OHLC order.'
   print(f'{symbol}: Already current through {end}; provider request skipped, existing file retained.');return
- bars=fetch_history(symbol,end)
+ bars=fetch_history(symbol,end,old.get('splits',[]))
  existing={b['date']:b for b in old['bars']};incoming=[];overlap=0
  for bar in bars:
   if bar['date'] in existing:
