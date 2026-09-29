@@ -158,3 +158,37 @@ class HistoryParserTests(unittest.TestCase):
         with patch.object(updater.urllib.request,'urlopen',side_effect=[updater.urllib.error.URLError('temporary'),io.BytesIO(history_html([bar]).encode())]) as fetch,patch.object(updater.time,'sleep'):
             self.assertEqual(updater.fetch_history('285A.T',dt.date(2026,9,28)),[bar])
         self.assertEqual(fetch.call_count,2)
+
+class SplitNoticeTests(unittest.TestCase):
+    def fixture(self,symbol):
+        return (Path(__file__).parent/'fixtures'/f'{symbol}-split-history.html').read_text()
+
+    def test_actual_split_day_tables_keep_trading_rows_and_raw_history(self):
+        for symbol,ratio,close,volume in [('285A.T',3,17880,41572200),('4062.T',2,11020,7653400)]:
+            with self.subTest(symbol=symbol):
+                bars=updater.parse_history(self.fixture(symbol),symbol,dt.date(2026,9,29),[dict(date='2026-09-29',ratio=ratio)])
+                self.assertEqual([b['date'] for b in bars],['2026-09-28','2026-09-29'])
+                self.assertEqual(bars[-1]['close'],close)
+                self.assertEqual(bars[-1]['volume'],volume)
+                self.assertEqual(bars[0]['close'],53340 if ratio==3 else 22310)
+
+    def test_missing_or_conflicting_split_metadata_fails_closed(self):
+        for splits in [[],[dict(date='2026-09-29',ratio=2)],[dict(date='2026-09-30',ratio=3)]]:
+            with self.subTest(splits=splits),self.assertRaisesRegex(AssertionError,'Unverified split notice'):
+                updater.parse_history(self.fixture('285A.T'),'285A.T',dt.date(2026,9,29),splits)
+
+    def test_notice_does_not_hide_missing_or_malformed_daily_bar(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'data').mkdir()
+            old=dict(date='2026-09-28',open=55990,high=56070,low=53340,close=53340,volume=18399200)
+            market=root/'data/market.json';market.write_text(json.dumps(dict(symbol='285A.T',splits=[dict(date='2026-09-29',ratio=3)],bars=[old])))
+            saved=market.read_bytes()
+            (root/'data/calendar.json').write_text(json.dumps(dict(start='2026-01-01',end='2026-12-31',holidays=[])))
+            html=history_html([old]).replace('</table>','<tr><td>2026/9/29</td><td>分割：1株→3株</td></tr></table>')
+            with patch.object(updater,'ROOT',root),patch.object(updater.urllib.request,'urlopen',return_value=io.BytesIO(html.encode())):
+                with self.assertRaisesRegex(AssertionError,'stale; expected 2026-09-29'):
+                    updater.update(now=dt.datetime(2026,9,29,20,tzinfo=ZoneInfo('Asia/Tokyo')))
+            self.assertEqual(market.read_bytes(),saved)
+        html=self.fixture('285A.T').replace('分割：1株→3株','不明な説明')
+        with self.assertRaisesRegex(AssertionError,'Incomplete daily row'):
+            updater.parse_history(html,'285A.T',dt.date(2026,9,29),[dict(date='2026-09-29',ratio=3)])
