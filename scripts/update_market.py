@@ -68,23 +68,45 @@ def fetch_history(symbol,end,splits=()):
    print(f'{symbol}: Temporary history request failure ({error}); retry {attempt+1}/2.')
    time.sleep(2*(attempt+1))
 
-def update(now=None,dry_run=False,symbol='285A.T',filename='market.json'):
- path=ROOT/'data'/filename;old=json.loads(path.read_text());cal=json.loads((ROOT/'data/calendar.json').read_text())
- assert old['symbol']==symbol,'Stored ticker mismatch.'
- now=now or dt.datetime.now(ZoneInfo('Asia/Tokyo'));today=now.date().isoformat()
+def completed_session(now,cal):
+ now=now.astimezone(ZoneInfo('Asia/Tokyo'));today=now.date().isoformat()
  assert cal['start']<=today<=cal['end'],'Calendar must be updated before refreshing quotes.'
  def session(date):return date.weekday()<5 and date.isoformat() not in cal['holidays']
  end=now.date()
  if now.hour*60+now.minute<930 or not session(end):
   end-=dt.timedelta(days=1)
   while not session(end):end-=dt.timedelta(days=1)
- # A later scheduled retry must not re-fetch a session already saved successfully.
- # Still validate the stored closing bar before declaring the file current.
+ return end,session
+
+def stored_current(old,symbol,end):
+ assert old['symbol']==symbol,'Stored ticker mismatch.'
  latest=old['bars'][-1]
  assert latest['date']<=end.isoformat(),'Stored data contains an unfinished or future session.'
  if latest['date']==end.isoformat():
   assert all(isinstance(latest[k],(int,float)) and not isinstance(latest[k],bool) and math.isfinite(latest[k]) and latest[k]>0 for k in ['open','high','low','close','volume']),'Invalid stored daily row.'
   assert latest['low']<=min(latest['open'],latest['close'])<=max(latest['open'],latest['close'])<=latest['high'],'Invalid stored OHLC order.'
+  return True
+ return False
+
+def all_current(now=None):
+ # A preflight error must keep the normal update/validation path enabled.
+ try:
+  now=now or dt.datetime.now(ZoneInfo('Asia/Tokyo'))
+  cal=json.loads((ROOT/'data/calendar.json').read_text())
+  end,_=completed_session(now,cal)
+  results=[stored_current(json.loads((ROOT/'data'/filename).read_text()),symbol,end) for symbol,filename in STOCKS]
+  return all(results)
+ except Exception as error:
+  print(f'Preflight could not confirm complete quotes: {error}')
+  return False
+
+def update(now=None,dry_run=False,symbol='285A.T',filename='market.json'):
+ path=ROOT/'data'/filename;old=json.loads(path.read_text());cal=json.loads((ROOT/'data/calendar.json').read_text())
+ assert old['symbol']==symbol,'Stored ticker mismatch.'
+ now=now or dt.datetime.now(ZoneInfo('Asia/Tokyo'))
+ end,session=completed_session(now,cal)
+ latest=old['bars'][-1]
+ if stored_current(old,symbol,end):
   print(f'{symbol}: Already current through {end}; provider request skipped, existing file retained.');return
  bars=fetch_history(symbol,end,old.get('splits',[]))
  existing={b['date']:b for b in old['bars']};incoming=[];overlap=0
@@ -120,6 +142,8 @@ def update_all(now=None,dry_run=False):
  return errors
 
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('--dry-run',action='store_true');args=parser.parse_args()
+ parser=argparse.ArgumentParser();parser.add_argument('--dry-run',action='store_true');parser.add_argument('--check-current',action='store_true');args=parser.parse_args()
+ if args.check_current:
+  print(f'current={str(all_current()).lower()}');return
  if update_all(dry_run=args.dry_run):raise SystemExit(1)
 if __name__=='__main__':main()
