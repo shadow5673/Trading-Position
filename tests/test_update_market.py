@@ -192,3 +192,49 @@ class SplitNoticeTests(unittest.TestCase):
         html=self.fixture('285A.T').replace('分割：1株→3株','不明な説明')
         with self.assertRaisesRegex(AssertionError,'Incomplete daily row'):
             updater.parse_history(html,'285A.T',dt.date(2026,9,29),[dict(date='2026-09-29',ratio=3)])
+
+
+class PreflightTests(unittest.TestCase):
+    def setUp(self):
+        QuoteUpdateTests.setUp(self)
+        self.write_current()
+
+    def write_current(self):
+        for symbol,filename in updater.STOCKS:
+            (self.root/'data'/filename).write_text(json.dumps(dict(symbol=symbol,bars=[self.old_bar,self.new_bar])))
+
+    def check(self,now=None):
+        before={p:p.read_bytes() for p in (self.root/'data').glob('*.json')}
+        with patch.object(updater,'ROOT',self.root),patch.object(updater,'fetch_history') as fetch:
+            result=updater.all_current(now=now or self.now)
+        fetch.assert_not_called()
+        self.assertEqual(before,{p:p.read_bytes() for p in before})
+        return result
+
+    def test_both_stocks_current_without_network_or_writes(self):
+        self.assertTrue(self.check())
+        self.assertTrue(self.check(self.now.astimezone(dt.timezone.utc)))
+
+    def test_either_stock_stale_keeps_normal_path(self):
+        for symbol,filename in updater.STOCKS:
+            self.write_current()
+            (self.root/'data'/filename).write_text(json.dumps(dict(symbol=symbol,bars=[self.old_bar])))
+            self.assertFalse(self.check())
+
+    def test_invalid_or_missing_data_keeps_normal_path(self):
+        path=self.root/'data/market-4062.json'
+        for contents in ['{',json.dumps(dict(symbol='wrong',bars=[self.new_bar])),json.dumps(dict(symbol='4062.T',bars=[])),json.dumps(dict(symbol='4062.T',bars=[{**self.new_bar,'close':None}]))]:
+            path.write_text(contents)
+            self.assertFalse(self.check())
+        path.unlink()
+        self.assertFalse(self.check())
+
+    def test_future_bar_and_expired_calendar_keep_normal_path(self):
+        self.assertFalse(self.check(self.now.replace(hour=12)))
+        self.assertFalse(self.check(self.now.replace(year=2027)))
+
+    def test_weekend_holiday_and_close_boundary_share_session_rules(self):
+        for now,date,expected in [(self.now.replace(day=23),'2026-09-18',True),(self.now.replace(day=26,hour=2),'2026-09-25',True),(self.now.replace(hour=15,minute=29),'2026-09-18',True),(self.now.replace(hour=15,minute=30),'2026-09-18',False),(self.now.replace(hour=15,minute=30),'2026-09-24',True)]:
+            for symbol,filename in updater.STOCKS:
+                (self.root/'data'/filename).write_text(json.dumps(dict(symbol=symbol,bars=[{**self.new_bar,'date':date}])))
+            self.assertEqual(self.check(now),expected)

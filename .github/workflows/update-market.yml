@@ -23,21 +23,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Check whether both stocks are already current
+        id: preflight
+        if: github.event_name == 'schedule'
+        run: |
+          current=$(python3 scripts/update_market.py --check-current | tail -n 1) || current=false
+          if [ "$current" = 'current=true' ]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+            echo 'Both stocks are current; skipping setup, fetch, tests and publishing.'
+          else
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-python@v5
+        if: steps.preflight.outputs.current != 'true'
         with:
           python-version: '3.12'
       - uses: actions/setup-node@v4
+        if: steps.preflight.outputs.current != 'true'
         with:
           node-version: '24'
       - name: Fetch complete daily bars
+        if: steps.preflight.outputs.current != 'true'
         id: fetch
         continue-on-error: true
         run: python scripts/update_market.py
       - name: Verify history and strategy
+        if: steps.preflight.outputs.current != 'true'
         run: |
           python -m unittest discover -s tests -p 'test_*.py'
           npm test
       - name: Save quotes and request Pages rebuild
+        if: steps.preflight.outputs.current != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
